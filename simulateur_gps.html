@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulateur GPS — Trilatération (SNT 2nde)</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#eef2f7;color:#222}
+  header{background:#1f5fa8;color:#fff;padding:14px 20px}
+  header h1{margin:0;font-size:20px}
+  header p{margin:4px 0 0;font-size:13px;opacity:.9}
+  .wrap{display:flex;flex-wrap:wrap;gap:16px;padding:16px 20px;align-items:flex-start}
+  canvas{background:#fff;border:1px solid #b9c4d0;border-radius:8px;touch-action:none;cursor:grab}
+  .panel{flex:1;min-width:260px;background:#fff;border:1px solid #d6dee8;border-radius:8px;padding:16px}
+  .panel h2{font-size:16px;color:#1f5fa8;margin:0 0 10px}
+  button{font-size:14px;padding:8px 12px;margin:3px 4px 3px 0;border:1px solid #1f5fa8;background:#fff;color:#1f5fa8;border-radius:6px;cursor:pointer}
+  button.on{background:#1f5fa8;color:#fff}
+  .msg{margin-top:12px;padding:10px;border-radius:6px;background:#fff7dd;border:1px solid #d4a017;font-size:14px;line-height:1.4}
+  .leg{font-size:13px;margin-top:10px;color:#444;line-height:1.6}
+  .dot{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Simulateur GPS — la trilatération</h1>
+  <p>SNT — Seconde — Thème : Localisation, cartographie et mobilité</p>
+</header>
+<div class="wrap">
+  <canvas id="cv" width="540" height="540"></canvas>
+  <div class="panel">
+    <h2>Combien de satellites ?</h2>
+    <button id="b1" onclick="setN(1)">1 satellite</button>
+    <button id="b2" onclick="setN(2)">2 satellites</button>
+    <button id="b3" class="on" onclick="setN(3)">3 satellites</button>
+    <div class="msg" id="msg"></div>
+    <div class="leg">
+      <span class="dot" style="background:#d35400"></span>Satellites (fixes)<br>
+      <span class="dot" style="background:#000"></span>Récepteur — <b>fais-le glisser à la souris</b><br>
+      Chaque cercle = ensemble des points situés à la bonne distance d’un satellite.
+    </div>
+    <div class="leg" style="margin-top:14px;border-top:1px solid #eee;padding-top:10px">
+      <b>À faire :</b> clique sur 1, puis 2, puis 3 satellites et observe comment la position se précise. Déplace le récepteur : les cercles passent toujours par lui.
+    </div>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,U=36; // 36 px = 1 carreau
+const sats=[{x:2,y:2,c:'#1f5fa8'},{x:6,y:9,c:'#1e8449'},{x:12,y:5,c:'#c0392b'}];
+let rec={x:6,y:5}, N=3, drag=false;
+function gx(x){return x*U+20}
+function gy(y){return H-20-y*U}
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle='#dfe6ee';ctx.lineWidth=1;
+  for(let i=0;i<=14;i++){ctx.beginPath();ctx.moveTo(gx(i),gy(0));ctx.lineTo(gx(i),gy(14));ctx.stroke();
+    ctx.beginPath();ctx.moveTo(gx(0),gy(i));ctx.lineTo(gx(14),gy(i));ctx.stroke();}
+  // circles
+  for(let i=0;i<N;i++){const s=sats[i];const r=dist(s,rec)*U;
+    ctx.beginPath();ctx.arc(gx(s.x),gy(s.y),r,0,7);ctx.strokeStyle=s.c;ctx.lineWidth=2.2;ctx.stroke();}
+  // satellites
+  for(let i=0;i<sats.length;i++){const s=sats[i];const active=i<N;
+    ctx.fillStyle=active?'#d35400':'#c9b29a';ctx.beginPath();
+    star(gx(s.x),gy(s.y),9,active);ctx.fill();}
+  // receiver
+  ctx.fillStyle='#000';ctx.beginPath();ctx.arc(gx(rec.x),gy(rec.y),7,0,7);ctx.fill();
+  ctx.fillStyle='#000';ctx.font='12px Arial';
+  ctx.fillText('('+rec.x.toFixed(1)+' ; '+rec.y.toFixed(1)+')',gx(rec.x)+10,gy(rec.y)-8);
+  const m=document.getElementById('msg');
+  if(N===1)m.innerHTML="<b>1 satellite :</b> le récepteur peut être <u>n’importe où</u> sur le cercle. Position indéterminée.";
+  else if(N===2)m.innerHTML="<b>2 satellites :</b> il reste <u>2 points</u> possibles (les intersections des deux cercles).";
+  else m.innerHTML="<b>3 satellites :</b> un <u>seul point</u> commun aux trois cercles → la position est trouvée !";
+}
+function star(cx,cy,r,full){const sp=r/2.3;ctx.moveTo(cx,cy-r);
+  for(let i=0;i<5;i++){let a=Math.PI/5*(2*i+1)-Math.PI/2;ctx.lineTo(cx+Math.cos(a)*sp,cy+Math.sin(a)*sp);
+    a=Math.PI/5*(2*i+2)-Math.PI/2;ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);} ctx.closePath();}
+function setN(n){N=n;['b1','b2','b3'].forEach((id,i)=>document.getElementById(id).className=(i+1===n)?'on':'');draw();}
+function pos(e){const r=cv.getBoundingClientRect();const t=e.touches?e.touches[0]:e;
+  return {x:(t.clientX-r.left-20)/U,y:(H-20-(t.clientY-r.top))/U};}
+cv.addEventListener('mousedown',e=>{drag=true});
+cv.addEventListener('mousemove',e=>{if(drag){let p=pos(e);rec.x=Math.max(0,Math.min(14,p.x));rec.y=Math.max(0,Math.min(14,p.y));draw();}});
+window.addEventListener('mouseup',()=>drag=false);
+cv.addEventListener('touchstart',e=>{drag=true;e.preventDefault()},{passive:false});
+cv.addEventListener('touchmove',e=>{let p=pos(e);rec.x=Math.max(0,Math.min(14,p.x));rec.y=Math.max(0,Math.min(14,p.y));draw();e.preventDefault()},{passive:false});
+draw();
+</script>
+</body>
+</html>
